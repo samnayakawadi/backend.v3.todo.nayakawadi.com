@@ -21,7 +21,8 @@ const userSchema = new mongoose.Schema({
         lowercase: true
     },
     fullName: String,
-    mobile: String
+    mobile: String,
+    refreshTokens: [String]
 }, {
     timestamps: true
 })

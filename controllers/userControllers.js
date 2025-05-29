@@ -74,13 +74,15 @@ export const loginController = async (req, res) => {
 
             if (isPasswordValid) {
 
-                // What is missing here??
-
                 // Generating the access token
                 const accessToken = await generateAccessToken(existingUser.id)
 
                 // Generating the refresh token
                 const refreshToken = await generateRefreshToken(existingUser.id)
+
+                existingUser.refreshTokens.push(refreshToken)
+
+                await existingUser.save()
 
                 res.cookie("refreshToken", refreshToken, {
                     httpOnly: true,
@@ -123,4 +125,29 @@ export const loginController = async (req, res) => {
         })
     }
 
+}
+
+export const userLogoutController = (req, res) => {
+
+    console.log("req.user", req.user)
+
+    const user = req.user
+
+    const { refreshToken } = req.cookies
+
+    user.refreshTokens.filter(dbRefreshToken => refreshToken !== dbRefreshToken)
+
+    user.save()
+
+    res.clearCookie("refreshToken", {
+        httpOnly: true,
+        secure: false,
+        sameSite: "Strict" // Strict, Lax, None
+    })
+    res.json({
+        status: "completed",
+        message: "User logged out",
+        description: "",
+        code: 200
+    })
 }
