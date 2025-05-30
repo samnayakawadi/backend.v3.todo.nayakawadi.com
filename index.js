@@ -2,6 +2,7 @@ import express from "express"
 import { connectDB } from "./config/db.js"
 import { config } from "dotenv"
 import userRoutes from "./routes/userRoutes.js"
+import cookieParser from 'cookie-parser';
 
 config({
     path: "./config/config.env"
@@ -28,8 +29,8 @@ app.delete("/", (req, res) => {
 })
 
 app.use(express.json())
+app.use(cookieParser());
 app.use("/users", userRoutes)
-
 
 connectDB()
 

@@ -11,7 +11,7 @@ export const authorizeUser = async (req, res, next) => {
 
             const decodedToken = jwt.verify(token, process.env.jwt_access_token_secret)
 
-            const existingUser = await UserModel.findOne({ _id: decodedToken.id })
+            const existingUser = await UserModel.findOne({ _id: decodedToken.id }).select("-password -refreshTokens")
 
             if (existingUser) {
                 req.user = existingUser

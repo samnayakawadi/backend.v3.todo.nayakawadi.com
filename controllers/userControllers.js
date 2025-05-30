@@ -1,6 +1,7 @@
 import { UserModel } from "../models/User.js"
 import bcrypt from "bcrypt"
 import { generateAccessToken, generateRefreshToken } from "./jwtController.js"
+import jwt from "jsonwebtoken"
 
 export const createNewUser = async (req, res) => {
 
@@ -115,7 +116,6 @@ export const loginController = async (req, res) => {
             }
         }
     } catch (error) {
-        console.log("error", error)
         res.status(500).json({
             status: "failed",
             message: "Internal Server Error",
@@ -127,17 +127,19 @@ export const loginController = async (req, res) => {
 
 }
 
-export const userLogoutController = (req, res) => {
-
-    console.log("req.user", req.user)
+export const userLogoutController = async (req, res) => {
 
     const user = req.user
 
+    const existingUser = await UserModel.findOne({
+        _id: user._id
+    })
+
     const { refreshToken } = req.cookies
 
-    user.refreshTokens.filter(dbRefreshToken => refreshToken !== dbRefreshToken)
+    existingUser.refreshTokens = existingUser.refreshTokens.filter(dbRefreshToken => refreshToken !== dbRefreshToken)
 
-    user.save()
+    await existingUser.save()
 
     res.clearCookie("refreshToken", {
         httpOnly: true,
@@ -150,4 +152,100 @@ export const userLogoutController = (req, res) => {
         description: "",
         code: 200
     })
+}
+
+export const refreshTokenController = async (req, res) => {
+
+    try {
+        const { refreshToken } = req.cookies
+
+        if (refreshToken) {
+            //  Logical Part Here
+
+            const decodedToken = await jwt.verify(refreshToken, process.env.jwt_refresh_token_secret)
+
+            const existingUser = await UserModel.findOne({
+                _id: decodedToken.id
+            })
+
+            if (existingUser) {
+
+                if (existingUser.refreshTokens.includes(refreshToken)) {
+                    const newAccessToken = await generateAccessToken(existingUser.id)
+
+                    res.json({
+                        status: "completed",
+                        message: "New Access Token is Generated",
+                        desciption: "",
+                        code: 200,
+                        data: {
+                            accessToken: newAccessToken
+                        }
+                    })
+                }
+                else {
+                    res.status(401).json({
+                        status: "failed",
+                        message: "Refresh Token is Not in DB",
+                        desciption: "Your session is over. Please login again",
+                        code: 401,
+                        errorCode: "REFRESH-TOKEN-REMOVED"
+                    })
+                }
+            }
+            else {
+                res.status(404).json({
+                    status: "failed",
+                    message: "User does not exists",
+                    description: "You are not allowed to perform any operation as the user has been deleted from the database",
+                    code: 404,
+                    errorCode: "USER-REMOVED"
+                })
+            }
+
+        }
+        else {
+            res.status(401).json({
+                status: "failed",
+                message: "Refresh Token is Not Found",
+                description: "Please login to generate a new refreshToken",
+                code: 401,
+                errorCode: "REFRESH-EXPIRED"
+            })
+        }
+    } catch (error) {
+
+        if (error.name === "JsonWebTokenError") {
+            res.status(401).json({
+                status: "failed",
+                message: "Authentication Error",
+                description: "Something wrong with JWT",
+                code: 401,
+                errorCode: "REFRESH-EXPIRED"
+            })
+        }
+
+        res.status(500).json({
+            status: "failed",
+            message: "Internal Server Error",
+            description: error,
+            code: 500,
+            errorCode: "REFRESH-EXPIRED"
+        })
+    }
+
+}
+
+export const userProfileController = async (req, res) => {
+    const user = req.user
+
+    res.json({
+        status: "completed",
+        message: "User details fetch successfully",
+        description: "",
+        code: 200,
+        data: user
+    })
+
+    res.send("Here are the user profile details")
 }
